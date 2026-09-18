@@ -1,216 +1,111 @@
 # 窑变 for Zotero
 
-Puts the 窑变 palette into Zotero — **reader**, **library chrome**, and an
-optional **wallpaper with frosted glass** — plus the light/dark switch the
-reader is missing.
+<p align="center">
+  <img src="docs/pane.png" width="580" alt="Zotero 设置 → 窑变">
+</p>
 
-## Why a plugin at all
+<p align="center">
+  <a href="https://github.com/Sum-su/yaobian-zotero/releases"><img src="https://img.shields.io/github/v/release/Sum-su/yaobian-zotero?color=7BA898&label=release" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7BA898" alt="License"></a>
+  <img src="https://img.shields.io/badge/Zotero-7.0--10.x-7BA898" alt="Zotero 7.0–10.x">
+</p>
 
-Zotero has two separate theming surfaces and they behave nothing alike:
+<p align="center">
+  给 Zotero 的 36 套配色家族主题<br>
+  阅读器和书库界面一起换色，支持深浅切换、背景图片与毛玻璃
+</p>
 
-| | 阅读器 (reader) | 界面 (library / sidenav) |
-|---|---|---|
-| Official extension point | **yes** — the `+` in 主题 | no |
-| Requires a restart | no — hot | yes, if you do it by hand |
-| Contract | 4 fields | ~24 `--material-*` / `--fill-*` vars |
+---
 
-The reader surface is a real API: a theme is
-`{id, label, background, foreground, invertImages?}` stored in
-`Zotero.SyncedSettings` under `readerCustomThemes`, with the selection in the
-`reader.lightTheme` / `reader.darkTheme` prefs. But it has no *catalog* — every
-theme you add becomes another swatch in that little popup, three per row. 36
-families x 2 would be 24 rows of tiles.
+## 安装
 
-So the plugin owns two slots and rewrites them when you pick a family. The
-native swatch list always shows exactly the family you chose
-(`青瓷·浅` / `青瓷·深`), while all 36 families live in the Tools menu.
+1. 到 [Releases](https://github.com/Sum-su/yaobian-zotero/releases/latest) 下载 `yaobian.xpi`。
+2. Zotero → **工具 → 插件** → 右上角齿轮 → **Install Plugin From File…** → 选中刚下载的文件。
+3. 按提示重启 Zotero。
 
-The 界面 surface has no extension point, so this plugin does what a
-`userChrome.css` does — injects a stylesheet — but it does it at **author
-level, hot**, from inside the app, instead of at user level behind a restart.
+之后插件会自己检查更新（依据本仓库的 [`updates.json`](updates.json)），不用再手动下载。需要 Zotero 7.0 或更高。
 
-## Two ways in
+## 使用
 
-**设置 → 窑变** — a full pane: the family drop-down (with a live swatch strip of
-the current scheme's role colours), the light/dark switch, and the wallpaper
-controls with the image path and the opacity slider.
+面板有两个入口，改哪个都一样，两边会立刻同步：
 
-**工具 → 窑变** — the same controls as a menu, for when the settings window is
-not open. Both are views onto the same prefs, and either one updates the other
-immediately; neither owns the state.
+- **设置 → 窑变** — 完整面板，带色板预览和壁纸路径。
+- **工具 → 窑变** — 同样的控制项做成菜单，设置窗口没开着的时候用。
 
-Everything below applies to both.
-
-The 设置 window is themed too — it is a separate top-level window, and it was
-left on Zotero's stock palette until this was noticed. It follows the family,
-but never the wallpaper: see the API notes for why it stays opaque.
-
-## What it does
-
-**工具 → 窑变 → \<family\>** — three things at once, hot:
-
-1. writes that family's light/dark pair into Zotero's own reader-theme store
-   and switches the reader to it (open readers update, no reload);
-2. recolours the library chrome by mapping the family's VS Code role colours
-   onto Zotero's variables;
-3. if a wallpaper is on, re-tints the translucent surfaces to match.
-
-**工具 → 窑变 → 深浅 → 跟随系统 / 浅色 / 深色** sets
-`browser.theme.toolbar-theme` (2 / 1 / 0), which is Zotero's own appearance
-preference. The reader derives its scheme from the window's
-`prefers-color-scheme`, so this recolours the library *and* every open reader
-at once, and it is the same setting as 设置 → 外观.
-
-**工具 → 窑变 → 壁纸** — 选择图片… / 清除 / 启用 / 透明度 (0–90%).
-
-| 透明度 | 效果 |
+| 控制项 | 作用 |
 |---|---|
-| 0% | 等于关掉（图片不显示，界面不透明） |
-| 30% | 默认。界面 70% 不透明，工具栏额外加一层并 `backdrop-filter` |
-| 90% | 几乎只剩图 |
+| **配色家族** | 从 36 套里挑一套。阅读器的底色和书库界面的侧栏、标签栏、工具栏、菜单会一起换。调色板下面六个色块是当前这套的取色，鼠标悬停显示各自的色值。 |
+| **深浅** | 跟随系统 / 浅色 / 深色。写的是 Zotero 自己的外观设置（和 **设置 → 外观** 是同一个开关），阅读器也跟着变。 |
+| **壁纸与毛玻璃** | 启用后，界面按你设的透明度透出所选的图片，工具栏在图上再叠一层模糊。0% 等于关闭。 |
 
-The image is drawn on a `pointer-events: none` layer inside
-`#zotero-pane-stack`; the window's own background goes translucent by the same
-amount, so the veil is uniform across the whole window, and the toolbars get a
-blur on top of it. One knob drives veil and blur radius together.
+**所有改动都是热生效的**——换家族、切深浅、拖透明度，都不用重启 Zotero，已经打开的阅读器也会当场跟着变。
 
-Only `cover` sizing, one image shared by both schemes.
+### 关于壁纸
 
-## What it does not touch
+透明度一个滑块同时控制两件事：界面整体的透明程度，和工具栏上那层模糊的强度（30% 对应 4px）。数值越高图越清楚，但文字也越难读。
 
-- Custom reader themes you made by hand. The plugin only ever rewrites entries
-  whose id is `custom-yaobian-light` / `custom-yaobian-dark`.
-- `userContent.css` (reader / pdf.js / note editor) — still yours, still works.
-- Windows' own window material (Mica). See NOTICE.md for why.
+深浅两套配色共用同一张图。图片只在**主窗口**里显示——右键菜单和设置窗口是独立的窗口，看不到主窗口后面的壁纸，让它们透明只会露出桌面，所以它们保持不透明。
 
-### If you have a userChrome.css
+## 配色家族
 
-**Remove the colour mappings from it, or the plugin's 界面 layer will do
-nothing.** User-level `!important` beats author-level `!important` in Gecko, so
-a `userChrome.css` that sets the same variables wins unconditionally and the
-plugin's stylesheet becomes dead code. That is what the shipped stub in the
-profile says. Everything is hot once it is gone.
+36 套，从 [窑变 for VS Code](https://github.com/Sum-su/yaobian-theme) 的同一套调色板投影过来，所以两边可以配成一致的样子。默认是**青瓷**。
 
-## Files
+禅棕、长安、春梅、Claude、丹霞、Dopamine、Dracula、歌蕾蒂娅·返航、汉白玉、湖光、金镶玉、流云、Mint、莫奈、暮山紫、奶茶、Peppa、琵琶、Pulse、**青瓷**、青花、青雾、汝窑蓝、汝窑绿、山水、素宣、天水、Vitesse Soft、宣纸、雁灰、烟雨、胭脂、羊皮纸、窑火、玉石、紫陶。
 
-```
-src/gen_themes.py    reads the 72 generated VS Code themes -> src/themes.js
-src/gen_icons.py     regenerates src/icons/ from a source photo (not run by build.py)
-src/themes.js        generated; do not hand-edit
-src/manifest.json    id yaobian@zotero
-src/bootstrap.js     menu, pane controller, applyFamily, applyScheme, chromeCSS, wallpaper
-src/prefs.xhtml      the 设置 -> 窑变 pane (an XHTML fragment, not a document)
-src/prefs.js         extensions.yaobian.* defaults
-src/icons/           icon-48.png / icon-96.png, declared in manifest.json
-build.py             regenerates themes.js, then zips src/ -> yaobian.xpi
-updates.json         the update manifest Zotero fetches (repo root, NOT packed into the xpi)
-NOTICE.md            third-party provenance (the wallpaper design)
-CONTRIBUTORS.md      who wrote what
-```
+这 36 套色板**几乎都不是原创**：它们来自 cherrycss 收录的社区主题（其中大部分出自 linux.do 的中国风主题帖），以及 Dracula、Vitesse Soft 等各自的作者。逐条署名和许可声明见 [NOTICE.md](NOTICE.md)。
 
-`updates.json` is what `applications.zotero.update_url` in the manifest points at. It is
-written by hand and lives outside `src/`, so `build.py` never packs it and editing it cannot
-invalidate the `update_hash` it contains. Whenever a release is published, its
-`update_link` / `update_hash` are updated to the new asset.
+每一套都同时有浅色和深色两个版本，在面板的**深浅**里切换。
 
-`gen_icons.py` is deliberately not part of `build.py`: the icons only change when
-the artwork does, and wiring it in would make every build depend on a file that
-lives outside the repo.
+## 它不碰什么
 
-The palette source of truth is `C:/temp/yaobian-vscode/themes`, the output of
-the same `cherry.py -> roles.py -> gen.py` pipeline that produces the VS Code
-extension. The reader takes two of those colours; the chrome layer takes ten
-role colours and derives the rest with `color-mix`, so all 36 families work
-without per-family tuning.
+- **你自己在阅读器里加的主题。** 插件只改写两个固定 id（`custom-yaobian-light` / `custom-yaobian-dark`）的条目，其余原样保留。
+- **`userContent.css`。** 阅读器、pdf.js、笔记编辑器的自定义样式照常生效。
+- **Windows 的窗口材质（Mica）。** 那是系统层面的东西，插件不介入；原因写在 [NOTICE.md](NOTICE.md)。
 
-## Build and install
+## 常见问题
 
-```
+**书库界面没变色，但阅读器变了。**
+
+先看有没有 `userChrome.css`。Gecko 里 user 层的 `!important` 无条件压过 author 层，所以 `userChrome.css` 只要写了同一批颜色变量，插件的样式表就等于失效。把里面重复的配色部分删掉即可，删完立刻生效。这条提示在面板底部也会显示。
+
+**右键菜单和设置窗口为什么不变透明？**
+
+它们看不到壁纸。`backdrop-filter` 只能采样同一个窗口里的内容，而菜单和设置窗口是各自独立的顶层窗口，主窗口的壁纸对它们不可见。做成半透明只会露出桌面——比不透明更难看。设置窗口本身是跟着配色家族走的，只是不跟透明度。
+
+**阅读器主题列表里多了「窑变·浅」和「窑变·深」两项。**
+
+那是插件的两个槽位，名字会跟着你选的家族走（比如选青瓷就是「青瓷·浅」/「青瓷·深」）。Zotero 的阅读器主题接口没有目录，每加一套主题都会在那个小弹窗里多占一格，36 套 × 2 会排成 24 行。所以插件常驻两个槽位、按需改写它们，完整的 36 套放在工具菜单里。
+
+**换机器 / 重装 Zotero 后配色还在吗？**
+
+阅读器那两套主题存在 Zotero 的同步设置里，会跟着你的 Zotero 账号走。插件本身的偏好（家族、壁纸路径）是本地的，壁纸路径指向本地文件，换机器后要重新选图。
+
+## 构建
+
+```bash
 python build.py
 ```
 
-Then in Zotero: 工具 → 插件 → ⚙ → Install Plugin From File… → `yaobian.xpi`.
+会先用 `src/gen_themes.py` 重新生成 `src/themes.js`，再把 `src/` 打成 `yaobian.xpi`。产物在旁边，安装方式同上。
 
-## API notes worth keeping
+开发笔记（Zotero 偏好面板的加载细节、第二个 chrome 窗口、XUL 的各种坑）在 **[docs/internals.md](docs/internals.md)**。
 
-- **`Zotero.Prefs.get/set` prepend `extensions.zotero.` unless you pass
-  `global=true`** (`xpcom/prefs.js`: `pref = global ? pref : PREF_BRANCH + pref`).
-  Ours live under `extensions.yaobian.*`, so they all go through `ybGet`/`ybSet`.
-  Getting this wrong is silent: v0.1/0.2 wrote the family pref one level too
-  deep and it still worked, because both sides used the same wrong key.
-  `migratePhantomFamilyPref()` cleans that up once.
-- `Zotero.SyncedSettings` (not a pref) holds the themes, so they **sync to your
-  Zotero account**. Selecting one is a pref.
-- Writing `reader.lightTheme` directly does **not** reach already-open readers —
-  only `customThemes` has a SyncedSettings observer. Hence the explicit
-  `internalReader.setLightTheme()` push in `pushToOpenReaders()`.
-- `internalReader.setCustomThemes()` needs a `cloneInto(..., reader._iframeWindow)`
-  — the reader runs in an iframe compartment.
-- `Zotero.Prefs.set(name || false)` is why an unset theme pref reads back as
-  the *string* `"false"`, not a boolean.
-- The main-window stylesheet is scoped to `#main-window`, not `:root`: Zotero
-  copies main-window `<style>` elements into sub-documents, and `#main-window`
-  does not match a reader's `<html>`.
-- **设置 is a second chrome window, not part of the main one.** It has its own
-  document (`preferences.xhtml`) and its own root id — `#zotero-prefs`, not
-  `#main-window` — so a theme scoped to the main window leaves it on Zotero's
-  stock palette, including the pane this plugin itself lives in. It gets its
-  own stylesheet, written against `#zotero-prefs`.
-- That stylesheet is written **opaque**, even while a wallpaper is showing.
-  Translucency only reads as frosted when there is an image behind it, and
-  `backdrop-filter` samples within one window; nothing of the main window's
-  wallpaper is reachable from another toplevel. A translucent 设置 would show
-  the desktop, not the image. (Same reasoning as the menus.)
-- **`location.reload()` on a chrome window replaces its global**, so a listener
-  or a marker property parked on the window object is gone when it comes back.
-  Zotero reloads 设置 itself — `PreferencePanes.register()` ends in
-  `_refreshPreferences()` — which is how a stylesheet written during `startup()`
-  disappears moments later. The one notification that survives it, measured
-  with a probe across `domwindowopened`, `document-loaded`,
-  `xul-window-registered`, `xul-window-visible` and `nsIWindowMediator`'s three
-  callbacks:
+### 文件
 
-  ```
-  chrome-document-global-created -> chrome://zotero/content/preferences/preferences.xhtml
-  ```
+| 路径 | 说明 |
+|---|---|
+| `src/bootstrap.js` | 插件主体：菜单、面板控制器、配色应用、样式表注入、壁纸 |
+| `src/themes.js` | 36 套家族的色值，由 `gen_themes.py` 生成，不要手改 |
+| `src/prefs.xhtml` | **设置 → 窑变** 面板（XHTML 片段，不是完整文档） |
+| `src/prefs.js` | `extensions.yaobian.*` 的默认值 |
+| `src/manifest.json` | 插件清单，含 `update_url` |
+| `src/gen_themes.py` | 从 VS Code 版的主题文件生成 `themes.js` |
+| `src/gen_icons.py` | 从源图重新生成图标（不参与 `build.py`） |
+| `updates.json` | Zotero 拉取的更新清单，仓库根目录，**不打包进 xpi** |
+| `build.py` | 构建脚本 |
 
-  `domwindowopened` does **not** fire: the toplevel is reused, only the global
-  is new.
-- `Zotero.FilePicker` **does not exist**. The picker is only reachable as
-  `ChromeUtils.importESModule("chrome://zotero/content/modules/filePicker.mjs")`.
+`updates.json` 是清单里 `update_url` 指向的文件。它由手工维护、位于 `src/` 之外，所以 `build.py` 不会把它打进 xpi，改它也不会影响它自己声明的 `update_hash`。每次发版要同步更新其中的 `update_link` 和 `update_hash`。
 
-### Preference panes (`Zotero.PreferencePanes`)
+## 许可
 
-All of this is read out of `chrome/content/zotero/preferences/preferences.js`
-(`_loadPane` / `_initImportedNodesPostInsert`), not from docs:
-
-- `src` is an XHTML **fragment**, parsed by `MozXULElement.parseXULToFragment`.
-  XUL is the default namespace; HTML tags need the `html:` prefix.
-- **Only `[oncommand]` attributes are converted into real listeners.** Every
-  other `on*` attribute is inert markup. So `initPane()` attaches its own
-  listeners rather than relying on `onchange`/`oninput` in the markup.
-- The one hook that does fire is `load` on the fragment root, carrying
-  `event.waitUntil` for async init. That is why the root element has `onload`.
-- **Do not pass `scripts`.** Pane scripts run in a `Cu.Sandbox` whose prototype
-  is the window, so a global declared there is invisible to the markup's inline
-  handlers (compiled in the *window* scope). Going through `Zotero.Yaobian` --
-  set by bootstrap.js, which can write to the real `Zotero` -- sidesteps it.
-- **Do not use `preference="..."` on int prefs.** Zotero's loader binds it with
-  `Zotero.Prefs.set(key, value, true)`, and `Prefs.set` dispatches on the
-  *existing* pref type (`xpcom/prefs.js`): an int pref handed the string from a
-  menulist or input throws. `browser.theme.toolbar-theme` and our opacity are
-  both ints, so the pane calls `Number()` and goes through the same apply
-  functions as the menu.
-- A `menulist` must hold its items in a **`menupopup` child**. Appending
-  `menuitem`s straight to the menulist renders all of them inline and spilling
-  out of the control -- it reads like a styling bug but it is structural.
-  (`buildQuickCopyFormatDropDown` in `preferences_export.js` is the model.)
-- **`<scale>` does not exist any more** -- no `scale {}` rule and no
-  `MozXULScaleElement` anywhere in the app's `omni.ja`, and Zotero's own panes
-  contain no slider at all. The opacity control is an `html:input type="range"`.
-- `register()` with a fixed `id` is what keeps hot reloads from stacking
-  duplicate sidebar entries: startup runs again on reload, and Zotero's shutdown
-  observer does not fire on that path, so without the `unregister()` first each
-  reload would mint another `plugin-pane-<random>-<pluginID>`.
-- Leaving out `label`/`image` makes Zotero fall back to the manifest's plugin
-  name and icon -- which is why the pane's sidebar icon is `icons/icon-48.png`.
+[MIT](LICENSE)。第三方素材的出处见 [NOTICE.md](NOTICE.md)，贡献者见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。

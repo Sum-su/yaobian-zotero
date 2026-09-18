@@ -14,6 +14,113 @@
 
 那个仓库也是 MIT，作者同为 Sum-su，所以同源同许可。
 
+### 这些配色的上游
+
+36 套色板**几乎都不是原创**。逐条的出处记在 VS Code 仓库的
+[NOTICE.md](https://github.com/Sum-su/yaobian-theme/blob/main/NOTICE.md) 里；
+本仓库重新分发了同一批色值，所以把要点和必需的许可声明一并附在下面。
+
+| 来源 | 作者 | 许可 | 对应家族 |
+|---|---|---|---|
+| **cherrycss** — <https://github.com/boilcy/cherrycss> | Caiyun Liu ([@boilcy](https://github.com/boilcy)) | MIT，© 2025 Caiyun Liu | 色板定义的总来源 |
+| linux.do [t/325119](https://linux.do/t/topic/325119) | linux.do 用户 **imkekeaiai** | 未声明 | 25 款中国风，另有莫奈、奶茶、青花 |
+| **Dracula** — <https://github.com/dracula/dracula-theme> | Dracula Theme, created by Zeno Rocha | **MIT**，© 2023 Dracula Theme | Dracula |
+| **Vitesse Soft** — <https://github.com/antfu/vscode-theme-vitesse> | Anthony Fu ([@antfu](https://github.com/antfu))，基于 GitHub 的 Primer 主题 | **MIT**，© 2020 Primer、© 2021 Anthony Fu | Vitesse Soft |
+| linux.do [t/432753](https://linux.do/t/topic/432753) | **404nyaFound**（深色版由 **LostMyHead** 提供） | 未声明 | 歌蕾蒂娅·返航 |
+| linux.do [t/472763](https://linux.do/t/topic/472763) | **EDWINCHENC** | 未声明 | Claude |
+| cherrycss [issue #28](https://github.com/boilcy/cherrycss/issues/28) | GitHub 用户 **hailey07** | 未单独声明（并入 cherrycss 的 MIT 仓库） | Peppa |
+| cherrycss [PR #16](https://github.com/boilcy/cherrycss/pull/16) | GitHub 用户 **HPUhushicheng** | 同上 | 暮山紫 |
+| cherrycss [PR #13](https://github.com/boilcy/cherrycss/pull/13) | GitHub 用户 **Lucas04-nhr** | 同上 | Pulse（脉动交互） |
+| [Color Hunt](https://colorhunt.co/palette/519d9e58c9b99dc8c8d1b6e1) | — | Color Hunt 声明其色板为公共财产 | Mint |
+| 未能查到 | — | 不明 | Dopamine |
+
+本仓库**只取了颜色值**：源主题的 CSS、动画、字体、布局一概没用。若你是上述作者，
+希望改署名或撤下某一款，开个 issue 即可。
+
+同名主题的**名称**（Peppa、歌蕾蒂娅、Claude 等）只用于指认配色来源，不含任何关联或授权含义；
+相关商标归各自权利人所有。
+
+### 必需的许可全文
+
+#### cherrycss
+
+```text
+MIT License
+
+Copyright (c) 2025 Caiyun Liu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### Dracula Theme
+
+```text
+MIT License
+
+Copyright (c) 2023 Dracula Theme
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### Vitesse Theme
+
+```text
+MIT License
+
+Copyright (c) 2020 Primer
+Copyright (c) 2021 Anthony Fu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## 壁纸与毛玻璃：zotero-wallpaper
 
 界面半透明 + 背景图层这套做法，**设计参考**：
