@@ -1,0 +1,85 @@
+<!-- 窑变 管理面板（设置 → 窑变）。
+
+     这是一个 XHTML **片段**，不是完整文档：XUL 是默认命名空间，HTML 标签要写
+     html: 前缀（Zotero 用 MozXULElement.parseXULToFragment 解析它）。
+
+     根节点上的 onload 是唯一的初始化钩子——Zotero 会在片段插入后往根节点派发一个
+     带 event.waitUntil 的 load 事件（preferences.js 的 _initImportedNodesPostInsert）。
+
+     除此之外这里**不写任何 on* 属性**：Zotero 只把 [oncommand] 转成真监听器，别的
+     on* 会变成死标记。控件的监听器一律在 bootstrap.js 的 initPane() 里用
+     addEventListener 挂，保持只有一套机制。
+
+     同理，这里也**不用 preference="..."** 属性：Zotero.Prefs.set 按 pref 已有的类型
+     分派（xpcom/prefs.js），把 menulist/input 给的字符串塞进 int pref 会直接抛。
+     深浅和透明度都是 int pref，所以全部走 bootstrap.js 里那两个 apply 函数——
+     工具菜单用的是同一对函数，两个入口因此不会跑偏。
+
+     面板上的文字是**给用户看的**，只说这个选项是干什么的、会看到什么。Zotero 自己的
+     设置面板就是这个尺度（`preferences_general.xhtml` + en-US 的 preferences.ftl）：
+     一节一两句话，排在控件**上面**，后面跟 <separator class="thin"/>；没有一节去解释
+     实现或设计取舍。为什么这么实现的记录在 README.md 和 bootstrap.js 的注释里，
+     不要搬回来。 -->
+
+<vbox id="yaobian-pane"
+      onload="event.waitUntil(Zotero.Yaobian &amp;&amp; Zotero.Yaobian.initPane(this))">
+
+  <vbox class="main-section" id="yaobian-pane-family">
+    <groupbox aria-labelledby="yb-family-title">
+      <label><html:h2 id="yb-family-title">配色家族</html:h2></label>
+      <label id="yb-family-intro">阅读器和书库界面的配色一起换，立刻生效，不用重启 Zotero。</label>
+      <separator class="thin"/>
+      <hbox align="center">
+        <menulist id="yb-family" native="true"/>
+        <separator orient="vertical" width="12"/>
+        <hbox id="yb-swatches" align="center"/>
+      </hbox>
+      <label>后面六个色块依次是：底色、侧栏、标签栏、浮层、强调色、文字。</label>
+      <label>阅读器主题列表里对应「窑变·浅」和「窑变·深」两项，你自己添加的主题不受影响。</label>
+    </groupbox>
+  </vbox>
+
+  <vbox class="main-section" id="yaobian-pane-scheme">
+    <groupbox aria-labelledby="yb-scheme-title">
+      <label><html:h2 id="yb-scheme-title">深浅</html:h2></label>
+      <radiogroup orient="horizontal" id="yb-scheme">
+        <radio label="跟随系统" value="2"/>
+        <radio label="浅色" value="1"/>
+        <radio label="深色" value="0"/>
+      </radiogroup>
+    </groupbox>
+  </vbox>
+
+  <vbox class="main-section" id="yaobian-pane-wallpaper">
+    <groupbox aria-labelledby="yb-wallpaper-title">
+      <label><html:h2 id="yb-wallpaper-title">壁纸与毛玻璃</html:h2></label>
+      <label id="yb-wallpaper-intro">界面按下面的透明度透出图片，工具栏会在图上再加一层模糊。</label>
+      <separator class="thin"/>
+      <checkbox id="yb-wp-on" native="true" label="启用背景图片"/>
+      <hbox align="center">
+        <label value="图片" control="yb-wp-choose"/>
+        <label id="yb-wp-path" flex="1" crop="center"/>
+        <button id="yb-wp-choose" label="选择…"/>
+        <button id="yb-wp-clear" label="清除"/>
+      </hbox>
+      <hbox align="center">
+        <label value="透明度" control="yb-wp-opacity"/>
+        <html:input id="yb-wp-opacity" type="range" min="0" max="90" step="15" value="30"
+                    style="width: 220px;"/>
+        <label id="yb-wp-opacity-value" value="30%"/>
+      </hbox>
+      <label>透明度越高，文字越难看清；0% 等于关闭。深浅两套配色共用同一张图。</label>
+      <label>右键菜单和设置窗口不跟着变透明——它们看不到壁纸，透了只会露出桌面。</label>
+    </groupbox>
+  </vbox>
+
+  <vbox class="main-section" id="yaobian-pane-status">
+    <groupbox aria-labelledby="yb-status-title">
+      <label><html:h2 id="yb-status-title">状态</html:h2></label>
+      <separator class="thin"/>
+      <label id="yb-status"/>
+      <label>如果书库配色没有变化，检查一下 userChrome.css：里面写了同一批颜色变量的话，会盖过插件的配色。</label>
+    </groupbox>
+  </vbox>
+
+</vbox>

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "窑变",
+  "version": "0.4.0",
+  "description": "36 套配色家族，给阅读器和书库界面一起换色，支持深浅切换、自定义背景图片与毛玻璃。",
+  "author": "Sum-su",
+  "homepage_url": "https://github.com/Sum-su/yaobian-zotero",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "applications": {
+    "zotero": {
+      "id": "yaobian@zotero",
+      "update_url": "https://raw.githubusercontent.com/Sum-su/yaobian-zotero/main/updates.json",
+      "strict_min_version": "7.0",
+      "strict_max_version": "10.99.99"
+    }
+  }
+}
