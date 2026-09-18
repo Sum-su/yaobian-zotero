@@ -103,8 +103,15 @@ src/prefs.xhtml      the 设置 -> 窑变 pane (an XHTML fragment, not a documen
 src/prefs.js         extensions.yaobian.* defaults
 src/icons/           icon-48.png / icon-96.png, declared in manifest.json
 build.py             regenerates themes.js, then zips src/ -> yaobian.xpi
+updates.json         the update manifest Zotero fetches (repo root, NOT packed into the xpi)
 NOTICE.md            third-party provenance (the wallpaper design)
+CONTRIBUTORS.md      who wrote what
 ```
+
+`updates.json` is what `applications.zotero.update_url` in the manifest points at. It is
+written by hand and lives outside `src/`, so `build.py` never packs it and editing it cannot
+invalidate the `update_hash` it contains. Whenever a release is published, its
+`update_link` / `update_hash` are updated to the new asset.
 
 `gen_icons.py` is deliberately not part of `build.py`: the icons only change when
 the artwork does, and wiring it in would make every build depend on a file that
