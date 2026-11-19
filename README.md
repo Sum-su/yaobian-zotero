@@ -80,6 +80,14 @@
 
 阅读器那两套主题存在 Zotero 的同步设置里，会跟着你的 Zotero 账号走。插件本身的偏好（家族、壁纸路径）是本地的，壁纸路径指向本地文件，换机器后要重新选图。
 
+**禁用或卸载插件后，界面还是窑变的配色。**
+
+从 0.4.2 起不会了：禁用或卸载时，插件会把它改过的三项 Zotero 偏好（`reader.lightTheme`、`reader.darkTheme`、`browser.theme.toolbar-theme`）还原成接管前的值，并把两个阅读器主题条目从主题列表里删掉。卸载时连 `extensions.yaobian.*` 一起清掉。
+
+不想卸载也能随时交还：**工具 → 窑变 → 恢复 Zotero 原始配色**，或设置面板最下面的**交还配色**。再选一个家族就会重新接管。
+
+用着 0.4.1 或更早的版本：0.4.2 第一次启动时会认出旧版留下的痕迹（那两项阅读器偏好正指着我们的主题 id），把它们按「原本没有」接管，`browser.theme.toolbar-theme` 也一并交还给「跟随系统」。之后禁用、卸载都能正常还原；想立刻回到 Zotero 默认配色，点上面那个入口即可。
+
 ## 构建
 
 ```bash
@@ -87,6 +95,8 @@ python build.py
 ```
 
 会先用 `src/gen_themes.py` 重新生成 `src/themes.js`，再把 `src/` 打成 `yaobian.xpi`。产物在旁边，安装方式同上。
+
+改过 `src/bootstrap.js` 之后先跑一遍 `node tests/restore.test.mjs`：它把 `bootstrap.js` 装进 `vm`，用假的 `Zotero` 偏好与阅读器模拟启用、禁用、退出、卸载几条生命周期，不需要打开 Zotero。
 
 开发笔记（Zotero 偏好面板的加载细节、第二个 chrome 窗口、XUL 的各种坑）在 **[docs/internals.md](docs/internals.md)**。
 
@@ -103,6 +113,7 @@ python build.py
 | `src/gen_icons.py` | 从源图重新生成图标（不参与 `build.py`） |
 | `updates.json` | Zotero 拉取的更新清单，仓库根目录，**不打包进 xpi** |
 | `build.py` | 构建脚本 |
+| `tests/restore.test.mjs` | 生命周期测试：禁用 / 退出 / 卸载时偏好怎么交还 |
 
 `updates.json` 是清单里 `update_url` 指向的文件。它由手工维护、位于 `src/` 之外，所以 `build.py` 不会把它打进 xpi，改它也不会影响它自己声明的 `update_hash`。每次发版要同步更新其中的 `update_link` 和 `update_hash`。
 

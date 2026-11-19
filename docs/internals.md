@@ -55,6 +55,28 @@ chrome-document-global-created -> chrome://zotero/content/preferences/preference
 - `register()` 传固定 `id` 是热重载不堆叠侧栏条目的原因：重载会再跑一次 startup，而 Zotero 的 shutdown 观察者在这条路径上不触发，不先 `unregister()` 的话每次重载都会多生一个 `plugin-pane-<random>-<pluginID>`。
 - 不写 `label`/`image` 会让 Zotero 回退到清单里的插件名和图标——这就是面板侧栏图标是 `icons/icon-48.png` 的原因。
 
+## 接管 Zotero 的偏好与交还
+
+主题插件改的不只是自己的东西。除 `extensions.yaobian.*`，它还写三项**属于 Zotero** 的偏好，而 Zotero 在插件没了之后照样照它们渲染：`extensions.zotero.reader.lightTheme`、`extensions.zotero.reader.darkTheme`（`applyFamily()` 写，指向两个固定主题 id）和 `browser.theme.toolbar-theme`（`applyScheme()` 写，2 跟随系统 / 1 浅 / 0 深）。这就是 issue #1：禁用、卸载之后阅读器还是窑变的配色，而且界面上没有任何入口能改回去。
+
+现在的做法是**写之前先记原值**：`prefSnapshot()` 把原值存成 `"none"`（原本没有用户值）或 `"<类型>:<值>"` 到 `extensions.yaobian.saved.*`，`rememberPref()` 只在记录为空时写（**先记先赢** —— 从记下到交还之间看到的都是我们的值，每次 apply 都重记就等于把窑变归档成用户原选择），`restorePref()` 按记录的**类型**还回去。类型必须记：两个阅读器主题是 string，`browser.theme.toolbar-theme` 是 int，拿 `getStringPref` 读 int 会抛。这三个 `saved.*` 偏好**故意不在 `prefs.js` 里声明**：声明了默认值，`Zotero.Prefs.get()` 就永远不是 `undefined`，"从没记过"这个状态就没了。
+
+交还发生在三处，都走 `revertZoteroPrefs()`：
+
+- `shutdown()` 且 `reason` 是 **4（禁用）** 或 **6（卸载）**。退出（2）和升级（7）不动 —— 下一次启动还是我们，交还再接管只会闪一下。
+- `restoreOriginalColors()`：菜单和面板里的「恢复 Zotero 原始配色」。它清掉家族偏好，`applyChrome()` 于是撤掉样式表和壁纸层，再 `revertZoteroPrefs()`。
+- `uninstall()`：第二次机会，另外清掉 `extensions.yaobian.*`（用 `getChildList`），下一次安装不该继承上一次的家族和壁纸。
+
+**顺序是偏好先、条目后。** `SyncedSettings` 里的 `readerCustomThemes` 一旦少了 `custom-yaobian-light` / `custom-yaobian-dark`，Zotero 自己会把指向它们的 `reader.lightTheme` / `reader.darkTheme` 清掉（`reader.js` 的 `onSaveCustomThemes`）。先删条目，刚还回去的用户原选择会被这一下正好盖掉。删条目由 `dropOwnedThemes()` 单独做，不能复用 `pushToOpenReaders()` —— 它最后会无条件把我们的 id 重新选上。
+
+**`shutdown()` 里不能 await。** `SyncedSettings.set()` 是异步的，但写库语句在第一个 `await` 之前就排进 Zotero 的数据库队列，所以删条目照样落库，可能丢的只是 `_cache` 更新和 Notifier 广播。因此**用户看得见的偏好还原必须同步做完**，不能指望那一段；`dropOwnedThemes()` 也就按 fire-and-forget 写。
+
+从 0.4.1 升上来的人没有快照，而 `reader.lightTheme` / `darkTheme` 正指着我们两个 id。`startup()` 里的 `adoptLegacyPrefs()` 认这种情况：按 `prefSnapshot()` 把它们记成 `"none"`，`toolbar-theme` 也一并记 `"none"`（那里分不清 1 是用户自己选的还是我们写的，但跟两个 id 一起出现就按我们的算）。这样第一次启动就具备交还能力，不必等用户点一次面板。
+
+禁用时还会置 `extensions.yaobian.reapply = true`，把当时选的深/浅记进 `reapply-scheme`；`startup()` 末尾看到标记就重新 `applyFamily()` 和 `applyScheme()`。没有这个标记的话，要么重启后配色丢了，要么每次启动都 apply —— 那会覆盖掉用户在交还之后自己手选的阅读器主题。
+
+`shutdown()` 清理窗口用的是 `chromeWindows()` 而不是 `Zotero.getMainWindows()`：设置窗口（`#zotero-prefs`）里也有我们贴的样式表，只清主窗口的话，禁用之后它还是窑变的颜色。
+
 ## 其它
 
 - `Zotero.FilePicker` **不存在**。文件选择器只能通过 `ChromeUtils.importESModule("chrome://zotero/content/modules/filePicker.mjs")` 拿到。

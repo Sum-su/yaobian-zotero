@@ -56,6 +56,25 @@ const YB_WP_OPACITY = "extensions.yaobian.wallpaper.opacity";
 const YB_WP_STEPS = [0, 15, 30, 45, 60, 75, 90];
 const YB_WP_DEFAULT_OPACITY = 30;
 
+/* Zotero 自己那三项被接管的偏好：写进去之前先记原值（见 prefSnapshot()）。
+ * 它们都不在 extensions.yaobian.* 下，也都不在 prefs.js 里声明 —— 声明了默认值
+ * 就等于永远"记过"，快照再也存不进去。 */
+const YB_SAVED_PREFIX = "extensions.yaobian.saved.";
+const YB_OWNED_PREFS = [
+	["extensions.zotero.reader.lightTheme", YB_SAVED_PREFIX + "reader.lightTheme"],
+	["extensions.zotero.reader.darkTheme", YB_SAVED_PREFIX + "reader.darkTheme"],
+	[YB_SCHEME_PREF, YB_SAVED_PREFIX + "toolbar-theme"],
+];
+// 禁用之后再启用要不要把配色接回来，看这个标记；退出/升级不置它。
+const YB_REAPPLY_PREF = "extensions.yaobian.reapply";
+// Firefox bootstrap API 的 reason（Zotero 传的是同一套数字，别的插件都用
+// `reason === APP_SHUTDOWN` 这么判）：1 启动 / 2 退出 / 3 启用 / 4 禁用 /
+// 5 安装 / 6 卸载 / 7 升级 / 8 降级。
+const YB_REASON_DISABLE = 4;
+const YB_REASON_UNINSTALL = 6;
+// 禁用时把当时选的深浅也记下来，重新启用时接回；退出/升级不记。
+const YB_REAPPLY_SCHEME_PREF = "extensions.yaobian.reapply-scheme";
+
 function ybLog(msg) {
 	Zotero.debug("[窑变] " + msg);
 }
@@ -92,9 +111,179 @@ function migratePhantomFamilyPref() {
 	Services.prefs.clearUserPref(phantom);
 }
 
+/* ------------------------------- 接管 Zotero 自己的偏好（issue #1） */
+
+/* 主题插件改的不只是自己的东西。除 extensions.yaobian.*，它还写三项**属于
+ * Zotero** 的偏好，而 Zotero 在插件没了以后照样照它们渲染：
+ *
+ *     extensions.zotero.reader.lightTheme     applyFamily()
+ *     extensions.zotero.reader.darkTheme      applyFamily()
+ *     browser.theme.toolbar-theme             applyScheme()
+ *
+ * 这就是 issue #1：禁用了、卸掉了，阅读器还是窑变的配色、界面还是深色，而且
+ * 界面上没有任何地方能把它们改回去。所以每次写入之前先记一次原值，交还时把
+ * 原值放回去 —— 不是挑一个"看起来正常"的值，是它原来的那一个。
+ *
+ * 记录存在一个字符串偏好里：没有 = 从没记过（不动），"none" = 原本就没有用户
+ * 值（要从头上抹掉），其余是 "<类型>:<值>"。类型必须记：两个阅读器主题是
+ * string，browser.theme.toolbar-theme 是 int，拿 getStringPref 读 int 会抛。 */
+function prefSnapshot(name) {
+	if (!Services.prefs.prefHasUserValue(name)) {
+		return "none";
+	}
+	switch (Services.prefs.getPrefType(name)) {
+		case 64: // nsIPrefBranch.PREF_INT
+			return "int:" + Services.prefs.getIntPref(name);
+		case 128: // nsIPrefBranch.PREF_BOOL
+			return "bool:" + Services.prefs.getBoolPref(name);
+		default: { // nsIPrefBranch.PREF_STRING
+			let value = Services.prefs.getStringPref(name, "");
+			// 指向我们自己的主题的那条不是"用户原来的"：从 0.4.x 升上来的人，
+			// reader.lightTheme 里存的正是我们的 id，记下来等于把问题存成答案。
+			if (value === YB_LIGHT_ID || value === YB_DARK_ID) {
+				return "none";
+			}
+			return "string:" + value;
+		}
+	}
+}
+
+/* 先记先赢。从记下到交还之间，这三个偏好里看到的一直是我们的值；每次 apply 都
+ * 重记一遍，就等于把窑变的配色归档成"用户原来用的"。 */
+function rememberPref(name, savedKey) {
+	if (ybGet(savedKey) !== undefined) {
+		return;
+	}
+	ybSet(savedKey, prefSnapshot(name));
+}
+
+function rememberOwnedPref(name) {
+	let pair = YB_OWNED_PREFS.find((p) => p[0] === name);
+	if (!pair) {
+		// 名字写错的话快照会静默地永不发生，问题要等到卸载那天才现形。
+		throw new Error("not an owned preference: " + name);
+	}
+	rememberPref(pair[0], pair[1]);
+}
+
+function restorePref(name, savedKey) {
+	let saved = ybGet(savedKey);
+	if (saved === undefined) {
+		return false;
+	}
+	Services.prefs.clearUserPref(savedKey);
+	if (saved === "none") {
+		Services.prefs.clearUserPref(name);
+		return true;
+	}
+	let split = saved.indexOf(":");
+	let type = saved.slice(0, split);
+	let value = saved.slice(split + 1);
+	if (type === "int") {
+		Services.prefs.setIntPref(name, parseInt(value, 10));
+	} else if (type === "bool") {
+		Services.prefs.setBoolPref(name, value === "true");
+	} else {
+		Services.prefs.setStringPref(name, value);
+	}
+	return true;
+}
+
+/* 只删我们两个固定 id 的条目，用户自己手写的主题原样留着。不能拿
+ * pushToOpenReaders() 干这个：它最后会无条件把我们的 id 重新选上，正好反着来。 */
+function dropOwnedThemes() {
+	let libraryID = Zotero.Libraries.userLibraryID;
+	let existing = Zotero.SyncedSettings.get(libraryID, "readerCustomThemes");
+	if (!Array.isArray(existing)) {
+		return;
+	}
+	let next = existing.filter((t) => t.id !== YB_LIGHT_ID && t.id !== YB_DARK_ID);
+	if (next.length === existing.length) {
+		return;
+	}
+	for (let reader of Zotero.Reader._readers) {
+		try {
+			reader._internalReader.setCustomThemes(
+				Components.utils.cloneInto(next, reader._iframeWindow)
+			);
+		} catch (e) {
+			Zotero.logError(e);
+		}
+	}
+	Zotero.SyncedSettings.set(libraryID, "readerCustomThemes", next).catch((e) =>
+		Zotero.logError(e)
+	);
+}
+
+/* 先还偏好，再删条目 —— 顺序有讲究。Zotero 自己会清理（reader.js
+ * onSaveCustomThemes）：reader.lightTheme / darkTheme 指向的自定义主题一旦从
+ * 列表里消失，它就把偏好 clear 掉。先删条目，刚还回去的用户原选择会被这一下
+ * 正好盖掉。
+ *
+ * SyncedSettings.set 是异步的，而 shutdown() 不能 await。写库语句在第一个 await
+ * 之前就排进 Zotero 的数据库队列，所以删条目照样落库；可能丢的是 _cache 更新和
+ * Notifier 广播。因此**用户看得见的偏好还原必须同步做完**，不能指望这一段。 */
+function revertZoteroPrefs() {
+	for (let [name, savedKey] of YB_OWNED_PREFS) {
+		try {
+			restorePref(name, savedKey);
+		} catch (e) {
+			Zotero.logError(e);
+		}
+	}
+	try {
+		dropOwnedThemes();
+	} catch (e) {
+		Zotero.logError(e);
+	}
+}
+
+/* 工具菜单和面板里的"恢复 Zotero 原始配色"：东西全交还，插件留着。清掉家族偏好
+ * 之后 applyChrome() 会撤掉样式表和壁纸层，界面立刻回到 Zotero 自己的样子；
+ * 再选一个家族就等于重新接管 —— 那时 applyFamily() 把当下的值记成新的"原来"。 */
+function restoreOriginalColors() {
+	ybSet(YB_FAMILY_PREF, "");
+	revertZoteroPrefs();
+	refreshChrome();
+	syncMenu();
+	ybLog("handed the colours back to Zotero");
+}
+
+
+/* 0.4.2 之前没有快照，但旧版早就在用户机器上写下了我们的值：从 0.4.1 升上来
+ * 的人，reader.lightTheme / darkTheme 正指着我们两个 id。那不是"用户原来的"
+ * 选择，记成 none —— 否则禁用那天什么都还不回去，正是 issue #1 里升级用户的
+ * 处境。toolbar-theme 认不出是谁写的（1 也可能是用户自己选的深色），但它既然
+ * 跟我们的两个 id 一起出现，就按"跟随系统"交还。 */
+function adoptLegacyPrefs() {
+	if (ybGet(YB_SAVED_PREFIX + "reader.lightTheme") !== undefined) {
+		return; // 0.4.2 之后的生命周期，快照由 apply* 负责
+	}
+	let light = Services.prefs.getStringPref("extensions.zotero.reader.lightTheme", "");
+	let dark = Services.prefs.getStringPref("extensions.zotero.reader.darkTheme", "");
+	if (light !== YB_LIGHT_ID && dark !== YB_DARK_ID) {
+		return; // 我们没在这台机器上留下过配色
+	}
+	ybSet(YB_SAVED_PREFIX + "reader.lightTheme", prefSnapshot("extensions.zotero.reader.lightTheme"));
+	ybSet(YB_SAVED_PREFIX + "reader.darkTheme", prefSnapshot("extensions.zotero.reader.darkTheme"));
+	ybSet(YB_SAVED_PREFIX + "toolbar-theme", "none");
+	ybLog("adopted the prefs 0.4.1 left behind");
+}
+
 function install() {}
 
-function uninstall() {}
+/* 卸载时 uninstall 是第二次机会（禁用那条路在 shutdown 里已经还过一遍）。清掉
+ * extensions.yaobian.*：下一次安装不该继承上一个安装的家族和壁纸。 */
+function uninstall() {
+	try {
+		revertZoteroPrefs();
+		for (let name of Services.prefs.getChildList("extensions.yaobian.")) {
+			Services.prefs.clearUserPref(name);
+		}
+	} catch (e) {
+		Zotero.logError(e);
+	}
+}
 
 async function startup({ id, version, rootURI }) {
 	Yaobian = { id, version, rootURI, themes: [] };
@@ -110,6 +299,9 @@ async function startup({ id, version, rootURI }) {
 	}
 	ybLog("started, " + Yaobian.themes.length + " families loaded");
 	migratePhantomFamilyPref();
+	// 从 0.4.1 升上来的人，pref 里还留着我们的值：先认领成"原本没有"，
+	// 这样禁用/卸载时才还得回去。
+	adoptLegacyPrefs();
 
 	for (let win of Zotero.getMainWindows()) {
 		if (!win.ZoteroPane) {
@@ -130,19 +322,51 @@ async function startup({ id, version, rootURI }) {
 	// with the window as prototype; that one is reachable from here, not there.)
 	exposeAPI();
 	await registerPane();
+
+	// 禁用之后再启用：把配色接回来。这个标记就是为此存在的 —— 每次启动都
+	// applyFamily() 会覆盖掉用户在交还之后自己手选的阅读器主题。
+	if (ybGet(YB_REAPPLY_PREF)) {
+		ybSet(YB_REAPPLY_PREF, false);
+		let familyId = ybGet(YB_FAMILY_PREF);
+		if (familyId) {
+			await applyFamily(familyId);
+		}
+		// applyFamily 只管家族；深/浅是另一条偏好，要单独接回。
+		let scheme = ybGet(YB_REAPPLY_SCHEME_PREF);
+		if (scheme === "0" || scheme === "1") {
+			applyScheme(Number(scheme));
+			ybSet(YB_REAPPLY_SCHEME_PREF, "");
+		}
+	}
 }
 
-function shutdown() {
+function shutdown({ id, version, rootURI } = {}, reason) {
 	Services.obs.removeObserver(onChromeDocumentCreated, "chrome-document-global-created");
-	for (let win of Zotero.getMainWindows()) {
-		if (!win.ZoteroPane) {
-			continue;
+	// chromeWindows() 而不是 getMainWindows()：设置窗口里也有我们贴的样式表，
+	// 只清主窗口会让它在禁用之后继续是窑变的颜色。
+	for (let win of chromeWindows()) {
+		try {
+			removeFromWindow(win);
+		} catch (e) {
+			Zotero.logError(e);
 		}
-		removeFromWindow(win);
 	}
 	ybPaneDocs.clear();
 	delete Zotero.Yaobian;
 	Yaobian = undefined;
+
+	// 禁用（4）和卸载（6）要把 Zotero 自己的东西还回去 —— 那正是 issue #1：
+	// 插件没了，pref 还在，界面和阅读器照旧是窑变的颜色。退出（2）和升级（7）
+	// 不动：下一次启动还是我们，交还再接管只会闪一下。
+	if (reason === YB_REASON_DISABLE || reason === YB_REASON_UNINSTALL) {
+		if (reason === YB_REASON_DISABLE) {
+			ybSet(YB_REAPPLY_PREF, true);
+			// 深/浅是用户选的，重新启用时接回来；2 是"跟随系统"，不用记。
+			let scheme = Number(ybGet(YB_SCHEME_PREF));
+			ybSet(YB_REAPPLY_SCHEME_PREF, scheme === 0 || scheme === 1 ? String(scheme) : "");
+		}
+		revertZoteroPrefs();
+	}
 }
 
 function onMainWindowLoad({ window }) {
@@ -241,6 +465,15 @@ function addToWindow(win) {
 	}
 	opacityMenu.appendChild(opacityPopup);
 	wpPopup.appendChild(opacityMenu);
+
+	popup.appendChild(doc.createXULElement("menuseparator"));
+
+	// 交还 Zotero 自己的配色。东西全还回去，插件留着 —— 想再接管就再选一个
+	// 家族。issue #1 里的人要的正是这个：他们的界面已经改不回去了。
+	let restore = doc.createXULElement("menuitem");
+	restore.setAttribute("label", "恢复 Zotero 原始配色");
+	restore.addEventListener("command", () => restoreOriginalColors());
+	popup.appendChild(restore);
 
 	menu.appendChild(popup);
 	toolsPopup.appendChild(menu);
@@ -653,8 +886,11 @@ function applyChrome(win) {
 		if (style) {
 			style.remove();
 		}
-		if (isMain) {
-			applyWallpaper(win);
+		// 交还之后壁纸层也不能留：没有我们的半透明规则，它只会被压在内容后面
+		// 白画，还继续跟着窗口 resize。
+		let layer = win.document.getElementById(YB_WALLPAPER_ID);
+		if (layer) {
+			layer.remove();
 		}
 		return;
 	}
@@ -761,6 +997,9 @@ async function applyFamily(familyId) {
 
 	await Zotero.SyncedSettings.set(libraryID, "readerCustomThemes", next);
 
+	// 先记原值，再写 —— 这三项是 Zotero 的，交还时按记录放回去。
+	rememberOwnedPref("extensions.zotero.reader.lightTheme");
+	rememberOwnedPref("extensions.zotero.reader.darkTheme");
 	ybSet(YB_FAMILY_PREF, familyId);
 	Zotero.Prefs.set("reader.lightTheme", YB_LIGHT_ID);
 	Zotero.Prefs.set("reader.darkTheme", YB_DARK_ID);
@@ -775,6 +1014,7 @@ function applyScheme(value) {
 	// Zotero's own 外观 preference; the reader follows it via
 	// prefers-color-scheme, so this needs no per-reader plumbing.
 	// Third arg = global (see syncMenu).
+	rememberOwnedPref(YB_SCHEME_PREF);
 	ybSet(YB_SCHEME_PREF, value);
 	syncMenu();
 	ybLog("scheme -> " + value + " (2 auto / 1 light / 0 dark)");
@@ -818,6 +1058,8 @@ function exposeAPI() {
 	Zotero.Yaobian = {
 		version: Yaobian.version,
 		initPane,
+		// 交还配色也走 API：面板、菜单和 zotero-js-bridge 用同一条路。
+		restoreOriginalColors,
 		state: () => ({
 			family: ybGet(YB_FAMILY_PREF),
 			scheme: Number(ybGet(YB_SCHEME_PREF)),
@@ -917,6 +1159,7 @@ function initPane(root) {
 	// from the input; Number() here is what keeps the int pref an int.
 	on("yb-wp-opacity", "input", (e) => showOpacity(doc, Number(e.target.value)));
 	on("yb-wp-opacity", "change", (e) => setWallpaperOpacity(Number(e.target.value)));
+	on("yb-restore", "command", () => restoreOriginalColors());
 
 	syncPane(doc);
 }

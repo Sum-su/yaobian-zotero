@@ -3,9 +3,9 @@
     "yaobian@zotero": {
       "updates": [
         {
-          "version": "0.4.1",
-          "update_link": "https://github.com/Sum-su/yaobian-zotero/releases/download/v0.4.1/yaobian.xpi",
-          "update_hash": "sha256:06bca7ccfbce5fb25a4f37993331c7cb0cd76c06c4c4a79273e428ca34a97c2a",
+          "version": "0.4.2",
+          "update_link": "https://github.com/Sum-su/yaobian-zotero/releases/download/v0.4.2/yaobian.xpi",
+          "update_hash": "sha256:8bece3bc41c8880a776929e775764beaa3368e01592858c3f7107ead241f425e",
           "applications": {
             "zotero": {
               "strict_min_version": "7.0",
